@@ -59,6 +59,7 @@
   {:events [:multiaccounts.create.ui/intro-wizard]}
   [{:keys [db] :as cofx} first-time-setup?]
   (fx/merge {:db (assoc db :intro-wizard {:step :generate-key
+                                          :biometric-auth (:supported-biometric-auth db)
                                           :weak-password? true
                                           :encrypt-with-password? true
                                           :first-time-setup? first-time-setup?})}
@@ -111,7 +112,7 @@
 (fx/defn intro-step-forward
   {:events [:intro-wizard/step-forward-pressed]}
   [{:keys [db] :as cofx} {:keys [skip?] :as opts}]
-  (let  [{:keys [step first-time-setup? selected-storage-type processing?]} (:intro-wizard db)]
+  (let  [{:keys [step first-time-setup? biometric-auth selected-storage-type processing?]} (:intro-wizard db)]
     (cond (confirm-failure? db)
           (on-confirm-failure cofx)
 
@@ -122,6 +123,11 @@
                     (when (and (= step :enable-notifications) (not skip?))
                       {:notifications/request-notifications-permissions nil})
                     exit-wizard)
+
+          (= step :enable-fingerprint)
+          (fx/merge cofx
+                    {:db (assoc-in db [:intro-wizard :step] :enable-notifications)}
+                    {:dispatch [:multiaccounts.ui/biometric-auth-switched (not skip?)]})
 
           (= step :generate-key)
           (init-key-generation cofx)
@@ -135,6 +141,15 @@
           (fx/merge cofx
                     {:db (assoc-in db [:intro-wizard :processing?] true)}
                     create-multiaccount)
+
+          ; Skip TouchID/FaceID step if biometric auth is not supported
+          (and (= step :confirm-code)
+               first-time-setup?
+               (not biometric-auth)
+               (:multiaccounts/login db))
+          {:db (update db :intro-wizard
+                       assoc :processing? false
+                       :step :enable-notifications)}
 
           (and (= step :select-key-storage)
                (= :advanced selected-storage-type))

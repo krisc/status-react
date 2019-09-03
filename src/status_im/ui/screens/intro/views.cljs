@@ -30,15 +30,13 @@
       ^{:key i}
       [react/view {:style (styles/dot color (selected i))}]))])
 
-(defn intro-viewer [slides window-width]
-  (let [margin 24
-        view-width  (- window-width (* 2 margin))
-        scroll-x (r/atom 0)
-        scroll-view-ref (atom nil)
-        max-width (* view-width (dec (count slides)))]
+(defn intro-viewer [slides window-width window-height]
+  (let [scroll-x (r/atom 0)
+        margin    32
+        scroll-view-ref (atom nil)]
     (fn []
-      [react/view {:style {:margin-horizontal 32
-                           :align-items :center
+      [react/view {:style {:align-items :center
+                           :flex 1
                            :justify-content :flex-end}}
        [react/scroll-view {:horizontal true
                            :paging-enabled true
@@ -48,25 +46,29 @@
                            :pinch-gesture-enabled false
                            :on-scroll #(let [x (.-nativeEvent.contentOffset.x %)]
                                          (reset! scroll-x x))
-                           :style {:width view-width
-                                   :margin-vertical 32}}
+                           :style {:width window-width
+                                   :margin-bottom 32}}
         (for [s slides]
           ^{:key (:title s)}
-          [react/view {:style {:width view-width
-                               :padding-horizontal 16}}
-           [react/view {:style styles/intro-logo-container}
-            [components.common/image-contain
-             {:container-style {}}
-             {:image (:image s) :width view-width  :height view-width}]]
+          [react/view {:style {:width window-width
+                               :flex 1
+                               :justify-content :flex-end
+                               :padding-horizontal 32}}
+           [react/view {:style {:justify-content :center
+                                :margin-vertical 16}}
+            [react/image {:source (:image s)
+                          :resize-mode :contain
+                          :style {:width (- window-width (* 2 margin))
+                                  :height (- window-height 350 (* 2 margin))}}]]
            [react/i18n-text {:style styles/wizard-title :key (:title s)}]
            [react/i18n-text {:style styles/wizard-text
                              :key   (:text s)}]])]
-       (let [selected (hash-set (/ @scroll-x view-width))]
+       (let [selected (hash-set (quot (int @scroll-x) (int window-width)))]
          [dots-selector {:selected selected :n (count slides)
                          :color colors/blue}])])))
 
 (defview intro []
-  (letsubs [window-width [:dimensions/window-width]]
+  (letsubs [{window-width :width window-height :height} [:dimensions/window]]
     [react/view {:style styles/intro-view}
      [status-bar/status-bar {:flat? true}]
      [intro-viewer [{:image (:intro1 resources/ui)
@@ -77,7 +79,7 @@
                      :text :intro-text2}
                     {:image (:intro3 resources/ui)
                      :title :intro-title3
-                     :text :intro-text3}] window-width]
+                     :text :intro-text3}] window-width window-height]
      [react/view styles/buttons-container
       [components.common/button {:button-style (assoc styles/bottom-button :margin-bottom 16)
                                  :on-press     #(re-frame/dispatch [:multiaccounts.create.ui/intro-wizard true])
@@ -93,11 +95,18 @@
          :on-press privacy-policy/open-privacy-policy-link!}
         (i18n/label :t/intro-privacy-policy-note2)]]]]))
 
-(defn generate-key []
-  [components.common/image-contain
-   {:container-style {:margin-horizontal 80}}
-   {:image (resources/get-image :sample-key)
-    :width 154 :height 140}])
+(defn generate-key [view-height]
+  (let [image-height 140
+        image-width 154
+        image-container-height (- view-height 328)]
+    [react/view {:style {:margin-horizontal 80
+                         :align-items :center
+                         :justify-content :flex-start
+                         :flex 1
+                         :margin-top    (/ (- image-container-height image-height) 2)}}
+     [react/image {:source (resources/get-image :sample-key)
+                   :resize-mode :contain
+                   :style {:width image-width :height image-height}}]]))
 
 (defn choose-key [{:keys [multiaccounts selected-id] :as wizard-state} view-height]
   [react/scroll-view {:content-container-style {:flex 1
@@ -144,7 +153,7 @@
                                                                                      platform/android?) type :default)])}
       [react/view (assoc (styles/list-item selected?)
                          :align-items :flex-start
-                         :padding-top 20
+                         :padding-top 16
                          :padding-bottom 12)
        (if image
          [react/image
@@ -178,7 +187,7 @@
                          :justify-content :flex-end
                          ;; We have to align top storage entry
                          ;; with top multiaccount entry on the previous screen
-                         :margin-bottom (+ (- 300 232) (if (< view-height 600)
+                         :margin-bottom (+ (- 322 233) (if (< view-height 600)
                                                          -20
                                                          (/ view-height 12)))}}
      [storage-entry (first storage-types) selected-storage-type]
@@ -217,11 +226,11 @@
       (i18n/label :t/processing)]]
     [password-container confirm-failure? view-width]))
 
-(defn enable-fingerprint []
-  [vector-icons/icon :main-icons/fingerprint
+(defn enable-fingerprint [biometric-auth]
+  [vector-icons/icon (if (= biometric-auth :FaceID) :main-icons/faceid :main-icons/fingerprint)
    {:container-style {:align-items :center
                       :justify-content :center}
-    :width 76 :height 84}])
+    :width (if (= biometric-auth :FaceID) 70 76) :height (if (= biometric-auth :FaceID) 70 84)}])
 
 (defn enable-notifications []
   [vector-icons/icon :main-icons/bell {:container-style {:align-items :center
@@ -257,11 +266,12 @@
 
          :else
          [react/view {:style styles/bottom-arrow}
-          [components.common/bottom-button {:on-press     #(re-frame/dispatch
-                                                            [:intro-wizard/step-forward-pressed])
-                                            :disabled? (or processing?
-                                                           (and (= step :create-code) weak-password?))
-                                            :forward? true}]])
+          [react/view {:style {:margin-right 10}}
+           [components.common/bottom-button {:on-press     #(re-frame/dispatch
+                                                             [:intro-wizard/step-forward-pressed])
+                                             :disabled? (or processing?
+                                                            (and (= step :create-code) weak-password?))
+                                             :forward? true}]]])
    (when (#{:enable-fingerprint :enable-notifications} step)
      [components.common/button {:button-style (assoc styles/bottom-button :margin-top 20)
                                 :label (i18n/label :t/maybe-later)
@@ -272,17 +282,20 @@
       (i18n/label (if generating-keys? :t/generating-keys
                       :t/this-will-take-few-seconds))])])
 
-(defn top-bar [{:keys [step encrypt-with-password?]}]
+(defn top-bar [{:keys [step encrypt-with-password? biometric-auth]}]
   (let [hide-subtitle? (or (= step :confirm-code)
-                           (and (#{:create-code :confirm-code} step) encrypt-with-password?))]
+                           (and (#{:create-code :confirm-code} step) encrypt-with-password?))
+        use-faceid? (and (= step :enable-fingerprint) (= biometric-auth :FaceID))]
     [react/view {:style {:margin-top   16
                          :margin-horizontal 32}}
 
      [react/text {:style (cond-> styles/wizard-title
                            hide-subtitle?
                            (assoc :margin-bottom 0))}
-      (i18n/label (keyword (str "intro-wizard-title" (when  (and (#{:create-code :confirm-code} step) encrypt-with-password?)
-                                                       "-alt") (step-kw-to-num step))))]
+      (i18n/label (keyword (str "intro-wizard-title"
+                                (when  (or use-faceid?
+                                           (and (#{:create-code :confirm-code} step) encrypt-with-password?))
+                                  "-alt") (step-kw-to-num step))))]
      (cond (#{:choose-key :select-key-storage} step)
            ; Use nested text for the "Learn more" link
            [react/nested-text {:style styles/wizard-text}
@@ -294,16 +307,18 @@
              (i18n/label :learn-more)]]
            (not hide-subtitle?)
            [react/text {:style styles/wizard-text}
-            (i18n/label (keyword (str "intro-wizard-text" (step-kw-to-num step))))]
+            (i18n/label (keyword (str "intro-wizard-text"
+                                      (when use-faceid? "-alt")
+                                      (step-kw-to-num step))))]
            :else nil)]))
 
 (defview wizard []
-  (letsubs [{:keys [step generating-keys?] :as wizard-state} [:intro-wizard]
+  (letsubs [{:keys [step generating-keys? biometric-auth] :as wizard-state} [:intro-wizard]
             {view-height :height view-width :width} [:dimensions/window]]
     [react/keyboard-avoiding-view {:style {:flex 1}}
      [toolbar/toolbar
       {:style {:border-bottom-width 0
-               :margin-top 0}}
+               :margin-top 32}}
       (when-not (#{:enable-fingerprint :enable-notifications} step)
         (toolbar/nav-button
          (actions/back #(re-frame/dispatch
@@ -313,12 +328,12 @@
                           :justify-content :space-between}}
       [top-bar wizard-state]
       (case step
-        :generate-key [generate-key]
+        :generate-key [generate-key view-height]
         :choose-key [choose-key wizard-state view-height]
         :select-key-storage [select-key-storage wizard-state view-height]
         :create-code [create-code wizard-state view-width]
         :confirm-code [confirm-code wizard-state view-width]
-        :enable-fingerprint [enable-fingerprint]
+        :enable-fingerprint [enable-fingerprint biometric-auth]
         :enable-notifications [enable-notifications]
         nil nil)
       [bottom-bar wizard-state]]]))

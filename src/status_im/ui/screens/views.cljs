@@ -53,6 +53,9 @@
                  (= view :keycard.login/more)
                  (merge keycard/more-sheet)
 
+                 (= view :learn-more)
+                 (merge about-app/learn-more)
+
                  (= view :private-chat-actions)
                  (merge home.sheet/private-chat-actions)
 
