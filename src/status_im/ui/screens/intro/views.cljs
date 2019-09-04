@@ -238,6 +238,7 @@
                                        :width 66 :height 64}])
 
 (defn bottom-bar [{:keys [step generating-keys? weak-password? encrypt-with-password?
+                          biometric-auth
                           processing?] :as wizard-state}]
   [react/view {:style {:margin-bottom (if (or (#{:choose-key :select-key-storage} step)
                                               (and (#{:create-code :confirm-code} step)
@@ -251,7 +252,8 @@
          (#{:generate-key :enable-fingerprint :enable-notifications} step)
          (let [label-kw (case step
                           :generate-key :generate-a-key
-                          :enable-fingerprint :intro-wizard-title6
+                          :enable-fingerprint  (if (= biometric-auth :FaceID)
+                                                 :intro-wizard-title-alt6 :intro-wizard-title6)
                           :enable-notifications :intro-wizard-title7)]
            [components.common/button {:button-style styles/bottom-button
                                       :on-press     #(re-frame/dispatch
