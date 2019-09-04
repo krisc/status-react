@@ -187,7 +187,7 @@
                          :justify-content :flex-end
                          ;; We have to align top storage entry
                          ;; with top multiaccount entry on the previous screen
-                         :margin-bottom (+ (- 322 233) (if (< view-height 600)
+                         :margin-bottom (+ (- 322 226) (if (< view-height 600)
                                                          -20
                                                          (/ view-height 12)))}}
      [storage-entry (first storage-types) selected-storage-type]
@@ -320,7 +320,7 @@
     [react/keyboard-avoiding-view {:style {:flex 1}}
      [toolbar/toolbar
       {:style {:border-bottom-width 0
-               :margin-top 32}}
+               :margin-top 16}}
       (when-not (#{:enable-fingerprint :enable-notifications} step)
         (toolbar/nav-button
          (actions/back #(re-frame/dispatch
