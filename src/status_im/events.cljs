@@ -7,7 +7,7 @@
             [status-im.multiaccounts.logout.core :as multiaccounts.logout]
             [status-im.multiaccounts.recover.core :as multiaccounts.recover]
             [status-im.multiaccounts.update.core :as multiaccounts.update]
-            [status-im.biometric-auth.core :as biomentric-auth]
+            [status-im.biometric-auth.core :as biometric-auth]
             [status-im.bootnodes.core :as bootnodes]
             [status-im.browser.core :as browser]
             [status-im.browser.permissions :as browser.permissions]
@@ -129,14 +129,7 @@
  :multiaccounts.ui/biometric-auth-switched
  (fn [cofx [_ biometric-auth?]]
    (if biometric-auth?
-     (biomentric-auth/authenticate-fx
-      cofx
-      (fn [{:keys [bioauth-success bioauth-message]}]
-        (when bioauth-success
-          (re-frame/dispatch [:multiaccounts.ui/switch-biometric-auth true]))
-        (when bioauth-message
-          (utils/show-popup (i18n/label :t/biometric-auth-reason-verify) bioauth-message)))
-      {:reason (i18n/label :t/biometric-auth-reason-verify)})
+     (biometric-auth/auth-switched-on-fx cofx)
      (multiaccounts/switch-biometric-auth cofx false))))
 
 (handlers/register-handler-fx

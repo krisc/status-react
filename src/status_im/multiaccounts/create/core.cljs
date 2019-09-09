@@ -1,6 +1,7 @@
 (ns status-im.multiaccounts.create.core
   (:require [clojure.set :refer [map-invert]]
             [re-frame.core :as re-frame]
+            [status-im.biometric-auth.core :as biometric-auth]
             [status-im.constants :as constants]
             [status-im.ethereum.core :as ethereum]
             [status-im.native-module.core :as status]
@@ -127,7 +128,8 @@
           (= step :enable-fingerprint)
           (fx/merge cofx
                     {:db (assoc-in db [:intro-wizard :step] :enable-notifications)}
-                    {:dispatch [:multiaccounts.ui/biometric-auth-switched (not skip?)]})
+                    (when-not skip?
+                      biometric-auth/auth-switched-on-fx))
 
           (= step :generate-key)
           (init-key-generation cofx)

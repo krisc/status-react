@@ -1,8 +1,10 @@
 (ns status-im.biometric-auth.core
   (:require [re-frame.core :as re-frame]
+            [taoensso.timbre :as log]
             [status-im.utils.platform :as platform]
             [status-im.i18n :as i18n]
             [status-im.utils.fx :as fx]
+            [status-im.utils.utils :as utils]
             [status-im.ui.components.colors :as colors]
             [status-im.native-module.core :as status]
             [status-im.react-native.js-dependencies :as rn]))
@@ -66,7 +68,9 @@
 (defn- do-get-supported [callback]
   (-> (.isSupported rn/touchid)
       (.then #(callback (or (keyword %) android-default-support)))
-      (.catch #(callback nil))))
+      (.catch #(do
+                 (log/info "Error while getting biometric auth status:" %)
+                 (callback nil)))))
 
 (defn get-supported [callback]
   (cond platform/ios? (do-get-supported callback)
@@ -91,3 +95,13 @@
  :biometric-auth/authenticate
  (fn [[cb options]]
    (authenticate #(cb %) options)))
+
+(defn auth-switched-on-fx [cofx]
+  (authenticate-fx
+   cofx
+   (fn [{:keys [bioauth-success bioauth-message]}]
+     (when bioauth-success
+       (re-frame/dispatch [:multiaccounts.ui/switch-biometric-auth true]))
+     (when bioauth-message
+       (utils/show-popup (i18n/label :t/biometric-auth-reason-verify) bioauth-message)))
+   {:reason (i18n/label :t/biometric-auth-reason-verify)}))
