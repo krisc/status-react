@@ -53,8 +53,8 @@
                                    :justify-content  :space-between
                                    :background-color colors/white}
      [toolbar/toolbar
-      {:transparent? true
-       :style        {:margin-top 32}}
+      {:style {:border-bottom-width 0
+               :margin-top 16}}
       [toolbar/nav-text
        {:handler #(re-frame/dispatch [::multiaccounts.recover/cancel-pressed])
         :style   {:padding-left 21}}
@@ -62,73 +62,74 @@
       [react/text {:style {:color colors/gray}}
        (i18n/label :t/step-i-of-n {:step   "1"
                                    :number "2"})]]
-     [react/view {:flex            1
-                  :flex-direction  :column
-                  :justify-content :space-between
-                  :align-items     :center}
-      [react/view {:flex-direction :column
-                   :align-items    :center}
-       [react/view {:margin-top 16}
-        [react/text {:style {:typography :header
-                             :text-align :center}}
-         (i18n/label :t/multiaccounts-recover-enter-phrase-title)]]
-       [react/view {:margin-top 16}
-        [text-input/text-input-with-label
-         {:on-change-text    #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-changed (security/mask-data %)])
-          :auto-focus        true
-          :on-submit-editing #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-submitted])
-          :error             (when passphrase-error (i18n/label passphrase-error))
-          :placeholder       nil
-          :height            120
-          :multiline         true
-          :auto-correct      false
-          :keyboard-type     "visible-password"
-          :container         {:background-color :white
-                              :min-width        "50%"}
-          :style             {:background-color :white
-                              :text-align       :center
-                              :font-size        16
-                              :font-weight      "700"}}]]
+     [react/view {:flex 1
+                  :justify-content :flex-start
+                  :align-items    :center}
+      [react/view {:margin-top 16}
+       [react/text {:style {:typography :header
+                            :text-align :center}}
+        (i18n/label :t/multiaccounts-recover-enter-phrase-title)]]
+      [text-input/text-input-with-label
+       {:on-change-text    #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-changed (security/mask-data %)])
+        :auto-focus        true
+        :on-submit-editing #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-submitted])
+        :error             (when passphrase-error (i18n/label passphrase-error))
+        :placeholder       nil
+        ;:height            120
+        :multiline         true
+        :auto-correct      false
+        :keyboard-type     "visible-password"
+        :container         {:background-color :white
+                            :align-self :stretch
+                            ;                   :min-width        "50%"
+}
+        :style             {:background-color :white
+                            :text-align       :center
+                            :flex 1
+                            :align-self :stretch
+                            :font-size        16
+                            :font-weight      "700"}}]
+      (when words-count
+        [react/view {:flex-direction :row
+                     :margin-top 64
+                     :height         11
+                     :align-items    :center}
+         (when-not next-button-disabled?
+           [vector-icons/tiny-icon :tiny-icons/tiny-check])
+         [react/text {:style {:font-size    14
+                              :padding-left 4
+                              :font-weight "500"
+                              :text-align   :center
+                              :color        colors/black}}
+          (i18n/label-pluralize words-count :t/words-n)]])]
+     (when next-button-disabled?
        [react/view {:align-items :center}
-        (when words-count
-          [react/view {:flex-direction :row
-                       :height         14
-                       :align-items    :center}
-           (when-not next-button-disabled?
-             [vector-icons/tiny-icon :tiny-icons/tiny-check])
-           [react/text {:style {:font-size    14
-                                :padding-left 4
-                                :text-align   :center
-                                :color        colors/black}}
-            (i18n/label-pluralize words-count :t/words-n)]])]
-       (when next-button-disabled?
-         [react/view {:margin-top  17
-                      :align-items :center}
-          [react/text {:style {:color      colors/black
-                               :font-size  14
-                               :text-align :center}}
-           (i18n/label :t/multiaccounts-recover-enter-phrase-text)]])]
-      (when processing?
-        [react/view
-         [react/activity-indicator {:size      :large
-                                    :animating true}]
-         [react/text {:style {:color      colors/gray
-                              :margin-top 8}}
-          (i18n/label :t/processing)]])
-      [react/view {:flex-direction  :row
-                   :justify-content :space-between
-                   :align-items     :center
-                   :width           "100%"
-                   :height          86}
-       (when-not processing?
-         [react/view])
-       (when-not processing?
-         [react/view {:margin-right 20}
-          [components.common/bottom-button
-           {:on-press  #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-next-pressed])
-            :label     (i18n/label :t/next)
-            :disabled? next-button-disabled?
-            :forward?  true}]])]]]))
+        [react/text {:style {:color      colors/gray
+                             :font-size  14
+                             :text-align :center}}
+         (i18n/label :t/multiaccounts-recover-enter-phrase-text)]])
+     (if processing?
+       [react/view {:flex 1 :align-items :center}
+        [react/activity-indicator {:size      :large
+                                   :animating true}]
+        [react/text {:style {:color      colors/gray
+                             :margin-top 8}}
+         (i18n/label :t/processing)]]
+       [react/view {:flex-direction  :row
+                    :align-self :stretch
+                    :border-top-width 1
+                    :padding-top 16
+                    :margin-top 8
+                    :margin-bottom 20
+                    :justify-content  :flex-end
+                    :border-top-color colors/gray-lighter
+                    :align-items     :center}
+        [react/view {:margin-right 10}
+         [components.common/bottom-button
+          {:on-press  #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-next-pressed])
+           :label     (i18n/label :t/next)
+           :disabled? next-button-disabled?
+           :forward?  true}]]])]))
 
 (defview success []
   (letsubs [multiaccount [:get-recover-multiaccount]]
