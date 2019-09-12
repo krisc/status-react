@@ -69,29 +69,27 @@
        [react/text {:style {:typography :header
                             :text-align :center}}
         (i18n/label :t/multiaccounts-recover-enter-phrase-title)]]
-      [text-input/text-input-with-label
-       {:on-change-text    #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-changed (security/mask-data %)])
-        :auto-focus        true
-        :on-submit-editing #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-submitted])
-        :error             (when passphrase-error (i18n/label passphrase-error))
-        :placeholder       nil
+      [react/view {:style {:flex 1 :justify-content :center}}
+       [text-input/text-input-with-label
+        {:on-change-text    #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-changed (security/mask-data %)])
+         :auto-focus        true
+         :on-submit-editing #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-submitted])
+         :error             (when passphrase-error (i18n/label passphrase-error))
+         :placeholder       nil
         ;:height            120
-        :multiline         true
-        :auto-correct      false
-        :keyboard-type     "visible-password"
-        :container         {:background-color :white
-                            :align-self :stretch
-                            ;                   :min-width        "50%"
-}
-        :style             {:background-color :white
-                            :text-align       :center
-                            :flex 1
-                            :align-self :stretch
-                            :font-size        16
-                            :font-weight      "700"}}]
+         :multiline         true
+         :auto-correct      false
+         :keyboard-type     "visible-password"
+         :container         {:background-color :white}
+         :style             {:background-color :white
+                             :text-align       :center
+                             :flex 1
+                             :align-self :stretch
+                             :font-size        16
+                             :font-weight      "700"}}]]]
+     [react/view {:align-items :center}
       (when words-count
         [react/view {:flex-direction :row
-                     :margin-top 64
                      :height         11
                      :align-items    :center}
          (when-not next-button-disabled?
@@ -101,13 +99,13 @@
                               :font-weight "500"
                               :text-align   :center
                               :color        colors/black}}
-          (i18n/label-pluralize words-count :t/words-n)]])]
-     (when next-button-disabled?
-       [react/view {:align-items :center}
+          (i18n/label-pluralize words-count :t/words-n)]])
+      (when next-button-disabled?
         [react/text {:style {:color      colors/gray
                              :font-size  14
+                             :margin-top 8
                              :text-align :center}}
-         (i18n/label :t/multiaccounts-recover-enter-phrase-text)]])
+         (i18n/label :t/multiaccounts-recover-enter-phrase-text)])]
      (if processing?
        [react/view {:flex 1 :align-items :center}
         [react/activity-indicator {:size      :large
