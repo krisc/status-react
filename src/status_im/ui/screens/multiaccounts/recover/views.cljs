@@ -69,37 +69,55 @@
        [react/text {:style {:typography :header
                             :text-align :center}}
         (i18n/label :t/multiaccounts-recover-enter-phrase-title)]]
-      [react/view {:style {:flex 1 :justify-content :center}}
-       [text-input/text-input-with-label
-        {:on-change-text    #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-changed (security/mask-data %)])
-         :auto-focus        true
-         :on-submit-editing #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-submitted])
-         :error             (when passphrase-error (i18n/label passphrase-error))
-         :placeholder       nil
-        ;:height            120
-         :multiline         true
-         :auto-correct      false
-         :keyboard-type     "visible-password"
-         :container         {:background-color :white}
-         :style             {:background-color :white
-                             :text-align       :center
-                             :flex 1
-                             :align-self :stretch
-                             :font-size        16
-                             :font-weight      "700"}}]]]
+      [text-input/text-input-with-label
+       {:on-change-text    #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-changed (security/mask-data %)])
+        :auto-focus        true
+        :on-submit-editing #(re-frame/dispatch [::multiaccounts.recover/enter-phrase-input-submitted])
+        :error             (when passphrase-error (i18n/label passphrase-error))
+        :placeholder       nil
+         ;:height            120
+        :bottom-value      40
+        :multiline         true
+        :auto-correct      false
+        :keyboard-type     "visible-password"
+        :parent-container  {:flex 1
+                            :align-self :stretch
+                            :justify-content :center
+                            :align-items :center}
+        :container         {:background-color :white
+                            :flex 1
+                            :justify-content :center
+                            :align-items :center}
+        :style             {:background-color :white
+                            :text-align       :center
+                             ;:height 75
+                            :flex 1
+                            :flex-wrap :wrap
+                            :font-size        16
+                            :font-weight      "700"}}]]
      [react/view {:align-items :center}
       (when words-count
         [react/view {:flex-direction :row
                      :height         11
                      :align-items    :center}
-         (when-not next-button-disabled?
-           [vector-icons/tiny-icon :tiny-icons/tiny-check])
          [react/text {:style {:font-size    14
-                              :padding-left 4
-                              :font-weight "500"
                               :text-align   :center
-                              :color        colors/black}}
-          (i18n/label-pluralize words-count :t/words-n)]])
+                              :color        colors/gray}}
+          (str (i18n/label  :t/word-count) ":")]
+         [react/text {:style {:font-size          14
+                              :padding-horizontal 4
+                              :font-weight       "500"
+                              :text-align         :center
+                              :color              colors/black}}
+          (i18n/label-pluralize words-count :t/words-n)]
+         (when-not next-button-disabled?
+           [react/view {:style {:background-color colors/green-transparent-10
+                                :border-radius 12
+                                :width 24
+                                :justify-content :center
+                                :align-items :center
+                                :height 24}}
+            [vector-icons/tiny-icon :tiny-icons/tiny-check {:color colors/green}]])])
       (when next-button-disabled?
         [react/text {:style {:color      colors/gray
                              :font-size  14
