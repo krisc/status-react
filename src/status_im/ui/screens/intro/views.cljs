@@ -238,6 +238,7 @@
                                        :width 66 :height 64}])
 
 (defn bottom-bar [{:keys [step generating-keys? weak-password? encrypt-with-password?
+                          forward-action
                           biometric-auth
                           processing?] :as wizard-state}]
   [react/view {:style {:margin-bottom (if (or (#{:choose-key :select-key-storage} step)
@@ -257,7 +258,7 @@
                           :enable-notifications :intro-wizard-title7)]
            [components.common/button {:button-style styles/bottom-button
                                       :on-press     #(re-frame/dispatch
-                                                      [:intro-wizard/step-forward-pressed])
+                                                      [forward-action])
                                       :label        (i18n/label label-kw)}])
          (and (#{:create-code :confirm-code} step)
               (not encrypt-with-password?))
@@ -269,15 +270,14 @@
          :else
          [react/view {:style styles/bottom-arrow}
           [react/view {:style {:margin-right 10}}
-           [components.common/bottom-button {:on-press     #(re-frame/dispatch
-                                                             [:intro-wizard/step-forward-pressed])
+           [components.common/bottom-button {:on-press  #(re-frame/dispatch [forward-action])
                                              :disabled? (or processing?
                                                             (and (= step :create-code) weak-password?))
                                              :forward? true}]]])
    (when (#{:enable-fingerprint :enable-notifications} step)
      [components.common/button {:button-style (assoc styles/bottom-button :margin-top 20)
                                 :label (i18n/label :t/maybe-later)
-                                :on-press #(re-frame/dispatch [:intro-wizard/step-forward-pressed {:skip? true}])
+                                :on-press #(re-frame/dispatch [forward-action {:skip? true}])
                                 :background? false}])
    (when (= :generate-key step)
      [react/text {:style (assoc styles/wizard-text :margin-top 20)}
@@ -315,7 +315,7 @@
            :else nil)]))
 
 (defview wizard []
-  (letsubs [{:keys [step generating-keys? biometric-auth] :as wizard-state} [:intro-wizard]
+  (letsubs [{:keys [step generating-keys? biometric-auth back-action] :as wizard-state} [:intro-wizard]
             {view-height :height view-width :width} [:dimensions/window]]
     [react/keyboard-avoiding-view {:style {:flex 1}}
      [toolbar/toolbar
@@ -323,8 +323,7 @@
                :margin-top 16}}
       (when-not (#{:enable-fingerprint :enable-notifications} step)
         (toolbar/nav-button
-         (actions/back #(re-frame/dispatch
-                         [:intro-wizard/step-back-pressed]))))
+         (actions/back #(re-frame/dispatch [back-action]))))
       nil]
      [react/view {:style {:flex 1
                           :justify-content :space-between}}

@@ -62,6 +62,8 @@
   (fx/merge {:db (assoc db :intro-wizard {:step :generate-key
                                           :biometric-auth (:supported-biometric-auth db)
                                           :weak-password? true
+                                          :back-action :intro-wizard/step-back-pressed
+                                          :forward-action :intro-wizard/step-forward-pressed
                                           :encrypt-with-password? true
                                           :first-time-setup? first-time-setup?})}
             (navigation/navigate-to-cofx :intro-wizard nil)))
