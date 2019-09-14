@@ -172,7 +172,7 @@
 (fx/defn save-new-config
   "Saves a new status-go config for the current account
    This RPC method is the only way to change the node config of an account.
-   NOTE: it is better used indirectly through `prepare-new-config`, which will take
+   NOTE: it has to be used indirectly through `prepare-new-config`, which will take
    care of building up the proper config based on settings in app-db"
   {:events [::save-new-config]}
   [{:keys [db]} config {:keys [on-success]}]
