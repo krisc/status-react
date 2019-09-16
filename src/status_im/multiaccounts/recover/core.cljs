@@ -1,7 +1,6 @@
 (ns status-im.multiaccounts.recover.core
   (:require [clojure.string :as string]
             [re-frame.core :as re-frame]
-            [taoensso.timbre :as log]
             [status-im.constants :as constants]
             [status-im.ethereum.core :as ethereum]
             [status-im.ethereum.mnemonic :as mnemonic]
@@ -43,7 +42,6 @@
                   (re-frame/inject-cofx ::multiaccounts.create/get-signing-phrase)]}
   [{:keys [db] :as cofx} password]
   (let [multiaccount (get-in db [:intro-wizard :root-key])
-        _ (log/info "#on-store-multiaccount-success" (:intro-wizard db))
         multiaccount-address (-> (:address multiaccount)
                                  (string/lower-case)
                                  (string/replace-first "0x" ""))
@@ -113,16 +111,6 @@
                          :forward-action :multiaccounts.recover/re-encrypt-pressed)}
             (navigation/navigate-to-cofx :recover-multiaccount-success nil)))
 
-(fx/defn re-encrypt-pressed
-  {:events [:multiaccounts.recover/re-encrypt-pressed]}
-  [{:keys [db] :as cofx}]
-  (fx/merge cofx
-            {:db (update db :intro-wizard
-                         assoc :step :select-key-storage
-                         :forward-action :multiaccounts.recover/select-storage-next-pressed
-                         :selected-storage-type :default)}
-            (navigation/navigate-to-cofx :recover-multiaccount-select-storage nil)))
-
 (fx/defn enter-phrase-pressed
   {:events [::enter-phrase-pressed]}
   [{:keys [db] :as cofx}]
@@ -182,6 +170,18 @@
                            :forward-action :multiaccounts.recover/enter-password-next-pressed)}
               (navigation/navigate-to-cofx :recover-multiaccount-enter-password nil))))
 
+(fx/defn re-encrypt-pressed
+  {:events [:multiaccounts.recover/re-encrypt-pressed]}
+  [{:keys [db] :as cofx}]
+  (fx/merge cofx
+            {:db (update db :intro-wizard
+                         assoc :step :select-key-storage
+                         :forward-action :multiaccounts.recover/select-storage-next-pressed
+                         :selected-storage-type :default)}
+            (if platform/android?
+              (navigation/navigate-to-cofx :recover-multiaccount-select-storage nil)
+              (select-storage-next-pressed))))
+
 (fx/defn proceed-to-password-confirm
   [{:keys [db] :as cofx}]
   (fx/merge cofx
@@ -228,10 +228,3 @@
             (set-phrase input)
             (count-words)
             (run-validation)))
-
-#_(fx/defn confirm-password-input-changed
-    {:events [::confirm-password-input-changed]}
-    [{:keys [db]} input]
-    {:db (-> db
-             (assoc-in [:multiaccounts/recover :password-confirmation] input)
-             (assoc-in [:multiaccounts/recover :password-error] nil))})
