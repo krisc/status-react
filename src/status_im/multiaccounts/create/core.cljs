@@ -4,6 +4,7 @@
             [status-im.biometric-auth.core :as biometric-auth]
             [status-im.constants :as constants]
             [status-im.ethereum.core :as ethereum]
+            [status-im.multiaccounts.db :as db]
             [status-im.native-module.core :as status]
             [status-im.node.core :as node]
             [status-im.ui.components.colors :as colors]
@@ -90,7 +91,7 @@
 
 (fx/defn init-key-generation
   [{:keys [db] :as cofx}]
-  {:db (assoc-in db [:intro-wizard :generating-keys?] true)
+  {:db (assoc-in db [:intro-wizard :processing?] true)
    :intro-wizard/start-onboarding nil})
 
 (fx/defn on-confirm-failure [{:keys [db] :as cofx}]
@@ -262,7 +263,7 @@
    {:db (update db :intro-wizard
                 (fn [data]
                   (-> data
-                      (dissoc :generating-keys?)
+                      (dissoc :processing?)
                       (assoc :multiaccounts result
                              :selected-storage-type :default
                              :selected-id (-> result first :id)
@@ -304,7 +305,7 @@
   (let [encrypt-with-password? (get-in db [:intro-wizard :encrypt-with-password?])]
     {:db (update db :intro-wizard assoc :key-code new-key-code
                  :confirm-failure? false
-                 :weak-password? (< (count new-key-code) 6))}))
+                 :weak-password? (not (db/valid-length? new-key-code)))}))
 
 (re-frame/reg-cofx
  ::get-signing-phrase

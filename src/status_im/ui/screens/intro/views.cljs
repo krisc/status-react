@@ -9,6 +9,7 @@
             [status-im.ui.components.icons.vector-icons :as vector-icons]
             [status-im.utils.identicon :as identicon]
             [status-im.ui.components.radio :as radio]
+            [status-im.ui.components.text-input.view :as text-input]
             [taoensso.timbre :as log]
             [status-im.utils.gfycat.core :as gfy]
             [status-im.ui.components.colors :as colors]
@@ -17,6 +18,7 @@
             [status-im.ui.components.common.common :as components.common]
             [status-im.ui.screens.intro.styles :as styles]
             [status-im.ui.components.toolbar.view :as toolbar]
+            [status-im.utils.security :as security]
             [status-im.i18n :as i18n]
             [status-im.ui.components.status-bar.view :as status-bar]
             [status-im.constants :as constants]
@@ -237,22 +239,25 @@
                                                          :justify-content :center}
                                        :width 66 :height 64}])
 
-(defn bottom-bar [{:keys [step generating-keys? weak-password? encrypt-with-password?
+(defn bottom-bar [{:keys [step weak-password? encrypt-with-password?
                           forward-action
+                          next-button-disabled?
                           biometric-auth
                           processing?] :as wizard-state}]
-  [react/view {:style {:margin-bottom (if (or (#{:choose-key :select-key-storage} step)
+  [react/view {:style {:margin-bottom (if (or (#{:choose-key :select-key-storage
+                                                 :enter-phrase :recovery-success} step)
                                               (and (#{:create-code :confirm-code} step)
                                                    encrypt-with-password?))
                                         20
                                         32)
                        :align-items :center}}
-   (cond generating-keys?
+   (cond (and (#{:generate-key :recovery-success} step) processing?)
          [react/activity-indicator {:animating true
                                     :size      :large}]
-         (#{:generate-key :enable-fingerprint :enable-notifications} step)
+         (#{:generate-key :recovery-success :enable-fingerprint :enable-notifications} step)
          (let [label-kw (case step
                           :generate-key :generate-a-key
+                          :recovery-success :re-encrypt-key
                           :enable-fingerprint  (if (= biometric-auth :FaceID)
                                                  :intro-wizard-title-alt6 :intro-wizard-title6)
                           :enable-notifications :intro-wizard-title7)]
@@ -272,20 +277,25 @@
           [react/view {:style {:margin-right 10}}
            [components.common/bottom-button {:on-press  #(re-frame/dispatch [forward-action])
                                              :disabled? (or processing?
-                                                            (and (= step :create-code) weak-password?))
+                                                            (and (= step :create-code) weak-password?)
+                                                            (and (= step :enter-phrase) next-button-disabled?))
                                              :forward? true}]]])
    (when (#{:enable-fingerprint :enable-notifications} step)
      [components.common/button {:button-style (assoc styles/bottom-button :margin-top 20)
                                 :label (i18n/label :t/maybe-later)
                                 :on-press #(re-frame/dispatch [forward-action {:skip? true}])
                                 :background? false}])
-   (when (= :generate-key step)
+
+   (when (or (= :generate-key step) (and processing? (= :recovery-success step)))
      [react/text {:style (assoc styles/wizard-text :margin-top 20)}
-      (i18n/label (if generating-keys? :t/generating-keys
-                      :t/this-will-take-few-seconds))])])
+      (i18n/label (cond (= :recovery-success step)
+                        :t/processing
+                        processing? :t/generating-keys
+                        :else :t/this-will-take-few-seconds))])])
 
 (defn top-bar [{:keys [step encrypt-with-password? biometric-auth]}]
   (let [hide-subtitle? (or (= step :confirm-code)
+                           (= step :enter-phrase)
                            (and (#{:create-code :confirm-code} step) encrypt-with-password?))
         use-faceid? (and (= step :enable-fingerprint) (= biometric-auth :FaceID))]
     [react/view {:style {:margin-top   16
@@ -294,10 +304,15 @@
      [react/text {:style (cond-> styles/wizard-title
                            hide-subtitle?
                            (assoc :margin-bottom 0))}
-      (i18n/label (keyword (str "intro-wizard-title"
-                                (when  (or use-faceid?
-                                           (and (#{:create-code :confirm-code} step) encrypt-with-password?))
-                                  "-alt") (step-kw-to-num step))))]
+      (i18n/label
+       (cond (= step :enter-phrase)
+             :t/multiaccounts-recover-enter-phrase-title
+             (= step :recovery-success)
+             :t/keycard-recovery-success-header
+             :else (keyword (str "intro-wizard-title"
+                                 (when  (or use-faceid?
+                                            (and (#{:create-code :confirm-code} step) encrypt-with-password?))
+                                   "-alt") (step-kw-to-num step)))))]
      (cond (#{:choose-key :select-key-storage} step)
            ; Use nested text for the "Learn more" link
            [react/nested-text {:style styles/wizard-text}
@@ -309,32 +324,151 @@
              (i18n/label :learn-more)]]
            (not hide-subtitle?)
            [react/text {:style styles/wizard-text}
-            (i18n/label (keyword (str "intro-wizard-text"
-                                      (when use-faceid? "-alt")
-                                      (step-kw-to-num step))))]
+            (i18n/label (cond (= step :recovery-success)
+                              :t/recovery-success-text
+                              :else (keyword (str "intro-wizard-text"
+                                                  (when use-faceid? "-alt")
+                                                  (step-kw-to-num step)))))]
            :else nil)]))
 
+(defn enter-phrase [{:keys [processing?
+                            passphrase-word-count
+                            next-button-disabled?
+                            passphrase-error] :as wizard-state}]
+  [react/keyboard-avoiding-view {:flex             1
+                                 :justify-content  :space-between
+                                 :background-color colors/white}
+   [react/view {:flex 1
+                :justify-content :flex-start
+                :align-items    :center}
+    [text-input/text-input-with-label
+     {:on-change-text    #(re-frame/dispatch [:multiaccounts.recover/enter-phrase-input-changed (security/mask-data %)])
+      :auto-focus        true
+      :on-submit-editing #(re-frame/dispatch [:multiaccounts.recover/enter-phrase-input-submitted])
+      :error             (when passphrase-error (i18n/label passphrase-error))
+      :placeholder       nil
+      ;:height            120
+      :bottom-value      40
+      :multiline         true
+      :auto-correct      false
+      :keyboard-type     "visible-password"
+      :parent-container  {:flex 1
+                          :align-self :stretch
+                          :justify-content :center
+                          :align-items :center}
+      :container         {:background-color :white
+                          :flex 1
+                          :justify-content :center
+                          :align-items :center}
+      :style             {:background-color :white
+                          :text-align       :center
+                          ;:height 75
+                          :flex 1
+                          :flex-wrap :wrap
+                          :font-size        16
+                          :font-weight      "700"}}]]
+   [react/view {:align-items :center}
+    (when passphrase-word-count
+      [react/view {:flex-direction :row
+                   :height         11
+                   :margin-bottom 8
+                   :align-items    :center}
+       [react/text {:style {:font-size    14
+                            :text-align   :center
+                            :color        colors/gray}}
+        (str (i18n/label  :t/word-count) ":")]
+       [react/text {:style {:font-size          14
+                            :padding-horizontal 4
+                            :font-weight       "500"
+                            :text-align         :center
+                            :color              colors/black}}
+        (i18n/label-pluralize passphrase-word-count :t/words-n)]
+       (when-not next-button-disabled?
+         [react/view {:style {:background-color colors/green-transparent-10
+                              :border-radius 12
+                              :width 24
+                              :justify-content :center
+                              :align-items :center
+                              :height 24}}
+          [vector-icons/tiny-icon :tiny-icons/tiny-check {:color colors/green}]])])
+    [react/text {:style {:color      colors/gray
+                         :font-size  14
+                         :margin-bottom 8
+                         :text-align :center}}
+     (i18n/label :t/multiaccounts-recover-enter-phrase-text)]]
+   (when processing?
+     [react/view {:flex 1 :align-items :center}
+      [react/activity-indicator {:size      :large
+                                 :animating true}]
+      [react/text {:style {:color      colors/gray
+                           :margin-top 8}}
+       (i18n/label :t/processing)]])])
+
+(defn recovery-success [wizard-state]
+  (let [pubkey (get-in wizard-state [:derived constants/path-whisper-keyword :publicKey])]
+    [react/view {:flex           1
+                 :justify-content  :space-between
+                 :background-color colors/white}
+     [react/view {:flex            1
+                  :justify-content :space-between
+                  :align-items     :center}
+      [react/view {:flex-direction  :column
+                   :flex            1
+                   :justify-content :center
+                   :align-items     :center}
+       [react/view {:margin-horizontal 16
+                    :flex-direction    :column}
+        [react/view {:justify-content :center
+                     :align-items     :center
+                     :margin-bottom   11}
+         [react/image {:source {:uri (identicon/identicon pubkey)}
+                       :style  {:width         61
+                                :height        61
+                                :border-radius 30
+                                :border-width  1
+                                :border-color  colors/black-transparent}}]]
+        [react/text {:style           {:text-align  :center
+                                       :color       colors/black
+                                       :font-weight "500"}
+                     :number-of-lines 1
+                     :ellipsize-mode  :middle}
+         (gfy/generate-gfy pubkey)]
+        [react/text {:style           {:text-align  :center
+                                       :margin-top  4
+                                       :color       colors/gray
+                                       :font-family "monospace"}
+                     :number-of-lines 1
+                     :ellipsize-mode  :middle}
+         (utils/get-shortened-address pubkey)]]]]]))
+
+(defn intro-wizard [{:keys [step generating-keys?
+                            biometric-auth back-action
+                            view-width view-height] :as wizard-state}]
+  (log/info "#intro-wizard" wizard-state)
+  [react/keyboard-avoiding-view {:style {:flex 1}}
+   [toolbar/toolbar
+    {:style {:border-bottom-width 0
+             :margin-top 16}}
+    (when-not (#{:enable-fingerprint :enable-notifications} step)
+      (toolbar/nav-button
+       (actions/back #(re-frame/dispatch [back-action]))))
+    nil]
+   [react/view {:style {:flex 1
+                        :justify-content :space-between}}
+    [top-bar wizard-state]
+    (case step
+      :generate-key [generate-key view-height]
+      :choose-key [choose-key wizard-state view-height]
+      :select-key-storage [select-key-storage wizard-state view-height]
+      :create-code [create-code wizard-state view-width]
+      :confirm-code [confirm-code wizard-state view-width]
+      :enable-fingerprint [enable-fingerprint biometric-auth]
+      :enable-notifications [enable-notifications]
+      :recovery-success [recovery-success wizard-state]
+      :enter-phrase [enter-phrase wizard-state]
+      nil nil)
+    [bottom-bar wizard-state]]])
+
 (defview wizard []
-  (letsubs [{:keys [step generating-keys? biometric-auth back-action] :as wizard-state} [:intro-wizard]
-            {view-height :height view-width :width} [:dimensions/window]]
-    [react/keyboard-avoiding-view {:style {:flex 1}}
-     [toolbar/toolbar
-      {:style {:border-bottom-width 0
-               :margin-top 16}}
-      (when-not (#{:enable-fingerprint :enable-notifications} step)
-        (toolbar/nav-button
-         (actions/back #(re-frame/dispatch [back-action]))))
-      nil]
-     [react/view {:style {:flex 1
-                          :justify-content :space-between}}
-      [top-bar wizard-state]
-      (case step
-        :generate-key [generate-key view-height]
-        :choose-key [choose-key wizard-state view-height]
-        :select-key-storage [select-key-storage wizard-state view-height]
-        :create-code [create-code wizard-state view-width]
-        :confirm-code [confirm-code wizard-state view-width]
-        :enable-fingerprint [enable-fingerprint biometric-auth]
-        :enable-notifications [enable-notifications]
-        nil nil)
-      [bottom-bar wizard-state]]]))
+  (letsubs [wizard-state [:intro-wizard]]
+    [intro-wizard wizard-state]))
