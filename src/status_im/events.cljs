@@ -7,7 +7,7 @@
             [status-im.multiaccounts.logout.core :as multiaccounts.logout]
             [status-im.multiaccounts.recover.core :as multiaccounts.recover]
             [status-im.multiaccounts.update.core :as multiaccounts.update]
-            [status-im.biometric-auth.core :as biometric-auth]
+            [status-im.biometric-auth.core :as biomentric-auth]
             [status-im.bootnodes.core :as bootnodes]
             [status-im.browser.core :as browser]
             [status-im.browser.permissions :as browser.permissions]
@@ -129,7 +129,14 @@
  :multiaccounts.ui/biometric-auth-switched
  (fn [cofx [_ biometric-auth?]]
    (if biometric-auth?
-     (biometric-auth/auth-switched-on-fx cofx)
+     (biomentric-auth/authenticate-fx
+      cofx
+      (fn [{:keys [bioauth-success bioauth-message]}]
+        (when bioauth-success
+          (re-frame/dispatch [:multiaccounts.ui/switch-biometric-auth true]))
+        (when bioauth-message
+          (utils/show-popup (i18n/label :t/biometric-auth-reason-verify) bioauth-message)))
+      {:reason (i18n/label :t/biometric-auth-reason-verify)})
      (multiaccounts/switch-biometric-auth cofx false))))
 
 (handlers/register-handler-fx
@@ -752,6 +759,11 @@
    (hardwallet/on-init-card-error cofx error)))
 
 (handlers/register-handler-fx
+ :hardwallet.callback/on-install-applet-and-init-card-success
+ (fn [cofx [_ secrets]]
+   (hardwallet/on-install-applet-and-init-card-success cofx secrets)))
+
+(handlers/register-handler-fx
  :hardwallet.callback/on-install-applet-and-init-card-error
  (fn [cofx [_ error]]
    (hardwallet/on-install-applet-and-init-card-error cofx error)))
@@ -1012,6 +1024,11 @@
  :hardwallet/generate-mnemonic
  (fn [cofx _]
    (hardwallet/generate-mnemonic cofx)))
+
+(handlers/register-handler-fx
+ :hardwallet/generate-and-load-key
+ (fn [cofx _]
+   (hardwallet/generate-and-load-key cofx)))
 
 (handlers/register-handler-fx
  :hardwallet.ui/create-pin-button-pressed
