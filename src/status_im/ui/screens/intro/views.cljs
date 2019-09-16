@@ -228,12 +228,6 @@
       (i18n/label :t/processing)]]
     [password-container confirm-failure? view-width]))
 
-(defn enable-fingerprint [biometric-auth]
-  [vector-icons/icon (if (= biometric-auth :FaceID) :main-icons/faceid :main-icons/fingerprint)
-   {:container-style {:align-items :center
-                      :justify-content :center}
-    :width (if (= biometric-auth :FaceID) 70 76) :height (if (= biometric-auth :FaceID) 70 84)}])
-
 (defn enable-notifications []
   [vector-icons/icon :main-icons/bell {:container-style {:align-items :center
                                                          :justify-content :center}
@@ -242,7 +236,6 @@
 (defn bottom-bar [{:keys [step weak-password? encrypt-with-password?
                           forward-action
                           next-button-disabled?
-                          biometric-auth
                           processing?] :as wizard-state}]
   [react/view {:style {:margin-bottom (if (or (#{:choose-key :select-key-storage
                                                  :enter-phrase :recovery-success} step)
@@ -254,13 +247,11 @@
    (cond (and (#{:generate-key :recovery-success} step) processing?)
          [react/activity-indicator {:animating true
                                     :size      :large}]
-         (#{:generate-key :recovery-success :enable-fingerprint :enable-notifications} step)
+         (#{:generate-key :recovery-success :enable-notifications} step)
          (let [label-kw (case step
                           :generate-key :generate-a-key
                           :recovery-success :re-encrypt-key
-                          :enable-fingerprint  (if (= biometric-auth :FaceID)
-                                                 :intro-wizard-title-alt6 :intro-wizard-title6)
-                          :enable-notifications :intro-wizard-title7)]
+                          :enable-notifications :intro-wizard-title6)]
            [components.common/button {:button-style styles/bottom-button
                                       :on-press     #(re-frame/dispatch
                                                       [forward-action])
@@ -280,7 +271,7 @@
                                                             (and (= step :create-code) weak-password?)
                                                             (and (= step :enter-phrase) next-button-disabled?))
                                              :forward? true}]]])
-   (when (#{:enable-fingerprint :enable-notifications} step)
+   (when (= :enable-notifications step)
      [components.common/button {:button-style (assoc styles/bottom-button :margin-top 20)
                                 :label (i18n/label :t/maybe-later)
                                 :on-press #(re-frame/dispatch [forward-action {:skip? true}])
@@ -293,11 +284,10 @@
                         processing? :t/generating-keys
                         :else :t/this-will-take-few-seconds))])])
 
-(defn top-bar [{:keys [step encrypt-with-password? biometric-auth]}]
+(defn top-bar [{:keys [step encrypt-with-password?]}]
   (let [hide-subtitle? (or (= step :confirm-code)
                            (= step :enter-phrase)
-                           (and (#{:create-code :confirm-code} step) encrypt-with-password?))
-        use-faceid? (and (= step :enable-fingerprint) (= biometric-auth :FaceID))]
+                           (and (#{:create-code :confirm-code} step) encrypt-with-password?))]
     [react/view {:style {:margin-top   16
                          :margin-horizontal 32}}
 
@@ -310,8 +300,7 @@
              (= step :recovery-success)
              :t/keycard-recovery-success-header
              :else (keyword (str "intro-wizard-title"
-                                 (when  (or use-faceid?
-                                            (and (#{:create-code :confirm-code} step) encrypt-with-password?))
+                                 (when  (and (#{:create-code :confirm-code} step) encrypt-with-password?)
                                    "-alt") (step-kw-to-num step)))))]
      (cond (#{:choose-key :select-key-storage} step)
            ; Use nested text for the "Learn more" link
@@ -327,7 +316,6 @@
             (i18n/label (cond (= step :recovery-success)
                               :t/recovery-success-text
                               :else (keyword (str "intro-wizard-text"
-                                                  (when use-faceid? "-alt")
                                                   (step-kw-to-num step)))))]
            :else nil)]))
 
@@ -442,14 +430,14 @@
          (utils/get-shortened-address pubkey)]]]]]))
 
 (defn intro-wizard [{:keys [step generating-keys?
-                            biometric-auth back-action
+                            back-action
                             view-width view-height] :as wizard-state}]
   (log/info "#intro-wizard" wizard-state)
   [react/keyboard-avoiding-view {:style {:flex 1}}
    [toolbar/toolbar
     {:style {:border-bottom-width 0
              :margin-top 16}}
-    (when-not (#{:enable-fingerprint :enable-notifications} step)
+    (when-not (= :enable-notifications step)
       (toolbar/nav-button
        (actions/back #(re-frame/dispatch [back-action]))))
     nil]
@@ -462,7 +450,6 @@
       :select-key-storage [select-key-storage wizard-state view-height]
       :create-code [create-code wizard-state view-width]
       :confirm-code [confirm-code wizard-state view-width]
-      :enable-fingerprint [enable-fingerprint biometric-auth]
       :enable-notifications [enable-notifications]
       :recovery-success [recovery-success wizard-state]
       :enter-phrase [enter-phrase wizard-state]
